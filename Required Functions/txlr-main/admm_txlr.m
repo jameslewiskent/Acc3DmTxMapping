@@ -184,13 +184,13 @@ while true
         if ~isempty(opts.noise)
             fprintf(1,'Iter: %03d  Cost: %8.3g  Chi^2/N: %8.3g  RMSE: %8.3g\n', i, cost, chi2, rmse(i));   
         else
-            fprintf(1,'Iter: %03d  Cost: %8.3g  RMSE: %8.3g\n', i, cost, rmse(i));   
+            %fprintf(1,'Iter: %03d  Cost: %8.3g  RMSE: %8.3g\n', i, cost, rmse(i));   % JK commented out 
         end
     else
         if ~isempty(opts.noise)
             fprintf(1,'Iter: %03d  Cost: %8.3g  Chi^2/N: %8.3g\n', i, cost, chi2);   
         else
-            fprintf(1,'Iter: %03d  Cost: %8.3g\n', i, cost);   
+            %fprintf(1,'Iter: %03d  Cost: %8.3g\n', i, cost);    % JK commented out 
         end
     end
     

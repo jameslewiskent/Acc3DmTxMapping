@@ -52,8 +52,8 @@ end
 U       =   reshape(U,kernel(1),kernel(2),dims(4),[]);
 U       =   padarray(U,[ceil((imsize-kernel)/2) 0 0],'pre');
 U       =   padarray(U,[floor((imsize-kernel)/2) 0 0],'post');
-tmp     =   fftshift(fftshift(ifft2(fftshift(fftshift(U,1),2)),1),2);
-%tmp     =   fftshift(fftshift(ifft2(ifftshift(ifftshift(U,1),2)),1),2); %JK
+%tmp     =   fftshift(fftshift(ifft2(fftshift(fftshift(U,1),2)),1),2);
+tmp     =   ifft2c(U); %JK changed 
 
 % Perform SVD on coil x component matrices, voxelwise
 % Keep the first n components

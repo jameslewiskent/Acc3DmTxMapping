@@ -1,5 +1,8 @@
-function [outputArg1,outputArg2] = plotiterations(Maps_acc,niters_array,acceleration)
-ROI_xcords = 11:24; ROI_ycords = 12:26;
+function plotsupportingfigureS4(Maps_acc,niters_array,acceleration)
+ROI_xcords = 14:26; ROI_ycords = 12:26; % ROIs for sz = [32 32]
+% Adjust incase sz has been altered from [32 32]
+ROI_xcords = round((ROI_xcords(1)./32)*sz(1)):round((ROI_xcords(end)./32)*sz(1));
+ROI_ycords = round((ROI_ycords(1)./32)*sz(2)):round((ROI_ycords(end)./32)*sz(2));
 
 for iter_n  = 1:size(niters_array,2)
 niters = niters_array(iter_n);

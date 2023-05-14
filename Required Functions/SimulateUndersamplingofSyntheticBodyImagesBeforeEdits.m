@@ -4,19 +4,18 @@ load('SyntheticBodyImages.mat','Relative_Rx','Ref_Shims_mTx','Prep_Shims_mTx','i
 
 kernel = [5,5]; % ESPIRiT kernel
 eig_thresh = 0.02; % ESPIRiT eigenvalue threshold
+calibsize = [sx,sy]; % ESPIRiT calibration size
 
-location = 'Data/Synthetic Body Simulation Results/';
-Folder1 = [location,'AcceleratedData/'];
-Folder2 = [location,'ReconData/'];
+location = ['Data',filesep,'Synthetic Body Simulation Results',filesep];
+Folder1 = [location,'AcceleratedData',filesep];
+Folder2 = [location,'ReconData',filesep];
 %% Crop out arms
-figure(); imagesc(imtile(abs(squeeze(sum(Ref_Shims_mTx(:,:,:,1),3)))))
-Relative_Rx(:,1:8,:,:) = 0; Relative_Rx(:,170:178,:,:) = 0;
-Ref_Shims_mTx(:,1:8,:,:) = 0; Ref_Shims_mTx(:,170:178,:,:) = 0;
-Prep_Shims_mTx(:,1:8,:,:) = 0; Prep_Shims_mTx(:,170:178,:,:) = 0;
-image_mask_full(:,1:8,:,:)= 0; image_mask_full(:,170:178,:,:)= 0; 
-
-figure(); imagesc(imtile(abs(squeeze(sum(Ref_Shims_mTx(:,:,:,1),3)))))
-figure(); imagesc(imtile(image_mask_full))
+% %figure(); imagesc(imtile(image_mask_full))
+% image_mask_full(:,1:8,:,:)= 0; image_mask_full(:,170:178,:,:)= 0; 
+% %figure(); imagesc(imtile(image_mask_full))
+% Relative_Rx = Relative_Rx.*image_mask_full;
+% Ref_Shims_mTx = Ref_Shims_mTx.*image_mask_full;
+% Prep_Shims_mTx = Prep_Shims_mTx.*image_mask_full;
 
 %% FFT and crop k-space to desired size (sx, sy)
 kdata_Relative = fftshift(fftshift(fft(fft(ifftshift(ifftshift(Relative_Rx,1),2),[],1),[],2),1),2);
@@ -93,14 +92,13 @@ for iter_n  = 1:size(niters,2)
                     
                     % Joint recon of rel, reference & prep images by concatenating along Tx dimension
                     %joint_data = cat(4,kdata_Relativec_acc,kdata_Ref_Shims_mTxc_acc,kdata_Prep_Shims_mTxc_acc);
-                    r_rel = admm_txlr(double(kdata_Relativec_acc), kernel, niters, [50 50]);
-                    joint_data = cat(4,r_rel,kdata_Ref_Shims_mTxc_acc,kdata_Prep_Shims_mTxc_acc);
+                    %recon_joint = admm_txlr(double(joint_data), kernel, niters, [50 50]);
                     
-                    recon_joint = admm_txlr(double(joint_data), kernel, niters, [50 50]);
-                    
-                    recon_rel(:,:,:,:,repeat_n,same_masks,accel_ind) = r_rel;%recon_joint(:,:,:,1:8);
-                    recon_ref(:,:,:,:,repeat_n,same_masks,accel_ind) = recon_joint(:,:,:,9:9+size(k_Ref_Shims_mTxc,4)-1);
-                    recon_prep(:,:,:,:,repeat_n,same_masks,accel_ind) = recon_joint(:,:,:,9+size(k_Prep_Shims_mTxc,4):end);
+                    recon_rel(:,:,:,:,repeat_n,same_masks,accel_ind) = admm_txlr(double(kdata_Relativec_acc), kernel, niters, [50 50]);
+
+                    %recon_rel(:,:,:,:,repeat_n,same_masks,accel_ind) = recon_joint(:,:,:,1:8);
+                    %recon_ref(:,:,:,:,repeat_n,same_masks,accel_ind) = recon_joint(:,:,:,9:9+size(k_Ref_Shims_mTxc,4)-1);
+                    %recon_prep(:,:,:,:,repeat_n,same_masks,accel_ind) = recon_joint(:,:,:,9+size(k_Prep_Shims_mTxc,4):end);
                end
             end
             disp(['Acceleration Factor of ',num2str(accelerations(accel_ind)), ' completed ', datestr(now, 'dd/mm/yy-HH:MM')])
@@ -123,10 +121,15 @@ image_mask(abs(image_mask) >= prctile(abs(image_mask),(1-sum(image_mask_full,'al
 
 %% Perform image recon for accelerated and unaccelerated images
 tic
-% Calculate sensitivity maps from cropped relative map k-space (will
-% calculate sensitivty map
-rx_sens = tx_espirit(permute(k_Relativec,[1,2,4,3]), sz, kernel, eig_thresh);
-tx_sens = tx_espirit(k_Relativec, sz, kernel, eig_thresh);
+% Calculate extent of ESPIRiT calibration region
+centre = [sx, sy]/2;
+calib1 = centre(1)-floor((calibsize(1)-1)/2):centre(1)+ceil((calibsize(1)-1)/2);
+calib2 = centre(2)-floor((calibsize(2)-1)/2):centre(2)+ceil((calibsize(2)-1)/2);
+
+% Calculate sensitivity maps from cropped relative map k-space (for
+% specific calibration region)
+rx_sens = tx_espirit(permute(k_Relativec(calib1,calib2,:,:),[1,2,4,3]), sz, kernel, eig_thresh);
+tx_sens = tx_espirit(k_Relativec(calib1,calib2,:,:), sz, kernel, eig_thresh);
 
 %figure(); imagesc(imtile(abs(squeeze(rx_sens(:,:,:,1)))),[0 1])
 %figure(); imagesc(imtile(abs(squeeze(rx_sens(:,:,:,2)))),[0 1])
@@ -153,7 +156,7 @@ Prep_Shims = squeeze(sum(bsxfun(@times,im_Prep_Shims_mTxc,conj(rx_sens(:,:,:,1))
 plotlowressyntheticimages(Relative_Images,Ref_Shims,Prep_Shims) % Supporting Figure 1
 
 for iter_n  = 1:size(niters,2)
-    niters = niters(iter_n); clearvars -except imaging_plane sz sx sy calib niters iter_n niters_array masks NRepeats Abs_Maps_Recon use_extra_Tx_Voltages image_mask acceleration Enc_Mat Shim_Setting1 Shim_Setting2 location filename Folder1 Folder2 k_Relativec k_Ref_Shims_mTxc k_Prep_Shims_mTxc im_Relativec im_Ref_Shims_mTxc im_Prep_Shims_mTxc Relative_Images Ref_Shims Prep_Shims rx_sens tx_sens kernel eig_thresh Hanning2D
+    niters = niters(iter_n); clearvars -except accelerations imaging_plane sz sx sy calib niters iter_n niters_array masks NRepeats Abs_Maps_Recon use_extra_Tx_Voltages image_mask acceleration Enc_Mat Shim_Setting1 Shim_Setting2 location filename Folder1 Folder2 k_Relativec k_Ref_Shims_mTxc k_Prep_Shims_mTxc im_Relativec im_Ref_Shims_mTxc im_Prep_Shims_mTxc Relative_Images Ref_Shims Prep_Shims rx_sens tx_sens kernel eig_thresh Hanning2D calib1 calib2
     load([Folder1,filename,'.mat']); % load in reconstructed kspace data
     filename2 = [filename,'_ReconSize',[num2str(sz(1)),num2str(sz(2))],'.mat']; % filename for reconstructed image data
     if exist([Folder2,filename2],'file') == 2
@@ -180,12 +183,14 @@ for iter_n  = 1:size(niters,2)
                 for repeat_n = 1:NRepeats
                     % Calculate sensitivity maps from cropped k-space for
                     % accelerated data only from Relative images
-                    rx_sens_acc(:,:,:,:,repeat_n,same_masks,accel_ind) = tx_espirit(permute(recon_rel(:,:,:,:,repeat_n,same_masks,accel_ind),[1,2,4,3]), sz, kernel, eig_thresh,1);
-                    tx_sens_acc(:,:,:,:,repeat_n,same_masks,accel_ind) = tx_espirit(recon_rel(:,:,:,:,repeat_n,same_masks,accel_ind), sz, kernel, eig_thresh,1);
+                    rx_sens_acc(:,:,:,:,repeat_n,same_masks,accel_ind) = tx_espirit(permute(recon_rel(calib1,calib2,:,:,repeat_n,same_masks,accel_ind),[1,2,4,3]), sz, kernel, eig_thresh);
+                    tx_sens_acc(:,:,:,:,repeat_n,same_masks,accel_ind) = tx_espirit(recon_rel(calib1,calib2,:,:,repeat_n,same_masks,accel_ind), sz, kernel, eig_thresh);
                 end
             end
         end
-                
+        nrmse(rx_sens_acc(:,:,:,:,1,2,1),rx_sens)
+        nrmse(rx_sens_acc(:,:,:,:,1,2,3),rx_sens)
+        
         if (sz(1) ~= sx || sz(2) ~= sy) && any(size(recon_rel,[1,2]) ~= sz)
             % Hanning filter to padd k-space
             recon_rel = padarray(padarray(recon_rel.*Hanning2D,ceil((sz-[sx,sy])/2),'pre'),floor((sz-[sx,sy])/2),'post');

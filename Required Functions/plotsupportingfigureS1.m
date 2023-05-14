@@ -1,4 +1,4 @@
-function plotlowressyntheticimages(Relative_Images,Ref_Shims,Prep_Shims)
+function plotsupportingfigureS1(Relative_Images,Ref_Shims,Prep_Shims)
 % Just for plotting synthetic low resolution images (without worrying about receive channels for figure)
 count = 1;
 for n = 1:size(Ref_Shims,3)
