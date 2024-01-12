@@ -1,5 +1,19 @@
-function [] = SimulateUndersamplingofSyntheticBodyImages(Recon_Type,sx,sy,sz,calib,niters_array,NRepeats,pSNR,masks,accelerations,Shim_Setting1,Shim_Setting2)
+function [] = SimulateUndersamplingofSyntheticBodyImages(settings)
 load('SyntheticBodyImages.mat','Relative_Rx','Ref_Shims_mTx','Prep_Shims_mTx','image_mask_full');
+
+Recon_Type = settings.Recon_Type;
+sx = settings.sx;
+sy = settings.sy;
+sz = settings.sz;
+calib = settings.calib;
+niters_array = settings.niters_array;
+accelerations = settings.accelerations;
+Shim_Setting1 = settings.Shim_Setting1;
+Shim_Setting2 = settings.Shim_Setting2;
+NRepeats = settings.NRepeats;
+pSNR = settings.pSNR;
+
+[masks] = genCSmasks(settings); % generate masks if neccesary
 
 kernel = [5 5]; % kernel size
 eig_thresh = 0.02; % Threshold for picking singular vectors of the calibration matrix (relative to largest singular value)
@@ -9,6 +23,9 @@ calibsize = [sx sy]; % ESPIRiT calibration size
 location = ['Data',filesep,'Synthetic Body Simulation Results',filesep];
 Folder1 = [location,'AcceleratedData',filesep];
 Folder2 = [location,'ReconData',filesep];
+if exist(Folder1,'dir') ~= 7 || exist(Folder2,'dir') ~= 7
+mkdir(Folder1); mkdir(Folder2);
+end
 
 % Centre body in FOV
 image_mask_full = circshift(image_mask_full,15,1);
@@ -111,9 +128,13 @@ for iter_n  = 1:size(niters_array,2)
                         if  strcmp(Recon_Type,'SENSE') ||  strcmp(Recon_Type,'GRAPPA')
                             refUS(:,:,:,:,repeat_n,same_masks,accel_ind) = kdata_Ref_Shims_mTxc_acc; % reference and prepared images still undersampled
                             prepUS(:,:,:,:,repeat_n,same_masks,accel_ind) = kdata_Prep_Shims_mTxc_acc;
-                        else
+                        elseif strcmp(Recon_Type,'sTxLR')
                             recon_ref(:,:,:,:,repeat_n,same_masks,accel_ind) = admm_txlr(double(kdata_Ref_Shims_mTxc_acc), kernel, niters, [50 50]);
                             recon_prep(:,:,:,:,repeat_n,same_masks,accel_ind) = admm_txlr(double(kdata_Prep_Shims_mTxc_acc), kernel, niters, [50 50]);
+                        elseif strcmp(Recon_Type,'TxLR')
+                            refprep_recon = admm_txlr(double(cat(4,kdata_Ref_Shims_mTxc_acc,kdata_Prep_Shims_mTxc_acc)), kernel, niters, [50 50]);
+                            recon_ref(:,:,:,:,repeat_n,same_masks,accel_ind) = refprep_recon(:,:,:,1:2);
+                            recon_prep(:,:,:,:,repeat_n,same_masks,accel_ind) = refprep_recon(:,:,:,3:4);
                         end
                     end
                 end
@@ -189,6 +210,7 @@ plotsupportingfigureS1(Relative_Images,Ref_Shims,Prep_Shims) % Supporting Figure
 
 for iter_n  = 1:size(niters_array,2)
     niters = niters_array(iter_n);
+    filename = ['Simulated_',Recon_Type,'Recon_sx',num2str(sx),'_sy',num2str(sy),'_calib',num2str(calib),'_niters',num2str(niters),'_Repeats',num2str(NRepeats)];
     load([Folder1,filename,'.mat']); % load in kspace data
     filename2 = [filename,'_ReconSize',[num2str(sz(1)),num2str(sz(2))],'.mat']; % filename for reconstructed image data
     if exist([Folder2,filename2],'file') == 2
@@ -335,8 +357,6 @@ for iter_n  = 1:size(niters_array,2)
     end
     disp(['Iteration ',num2str(niters_array(iter_n)), ' completed for all acceleration factors ', datestr(now, 'dd/mm/yy-HH:MM')])
 end
-
-
 
 toc
 disp('Finished Simulations.')
