@@ -1,5 +1,5 @@
 function [] = SimulateUndersamplingofSyntheticBodyImages(settings)
-load('SyntheticBodyImages.mat','Relative_Rx','Ref_Shims_mTx','Prep_Shims_mTx','image_mask_full');
+load('SyntheticBodyImages.mat','Relative_Rx','Ref_Shims','Prep_Shims','image_mask_full');
 
 Recon_Type = settings.Recon_Type;
 sx = settings.sx;
@@ -8,12 +8,13 @@ sz = settings.sz;
 calib = settings.calib;
 niters_array = settings.niters_array;
 accelerations = settings.accelerations;
-Shim_Setting1 = settings.Shim_Setting1;
-Shim_Setting2 = settings.Shim_Setting2;
+[Enc_Mat,~] = CalcEncMat(settings.Enc_Scheme);
+Shim_Setting1 = Enc_Mat(9,:); % CP
+Shim_Setting2 = Enc_Mat(9,:); % CP2
 NRepeats = settings.NRepeats;
 pSNR = settings.pSNR;
 
-[masks] = genCSmasks(settings); % generate masks if neccesary
+[masks] = genCSmasks(settings); % generate undersampling masks if neccesary
 
 kernel = [5 5]; % kernel size
 eig_thresh = 0.02; % Threshold for picking singular vectors of the calibration matrix (relative to largest singular value)
@@ -30,30 +31,30 @@ end
 % Centre body in FOV
 image_mask_full = circshift(image_mask_full,15,1);
 Relative_Rx = circshift(Relative_Rx,15,1);
-Ref_Shims_mTx = circshift(Ref_Shims_mTx,15,1);
-Prep_Shims_mTx = circshift(Prep_Shims_mTx,15,1);
+Ref_Shims = circshift(Ref_Shims,15,1);
+Prep_Shims = circshift(Prep_Shims,15,1);
 %% Crop out arms (optional)
 %figure(); imagesc(imtile(image_mask_full))
 image_mask_full(:,1:8,:,:)= 0; image_mask_full(:,170:178,:,:)= 0;
 %figure(); imagesc(imtile(image_mask_full))
 Relative_Rx = Relative_Rx.*image_mask_full;
-Ref_Shims_mTx = Ref_Shims_mTx.*image_mask_full;
-Prep_Shims_mTx = Prep_Shims_mTx.*image_mask_full;
+Ref_Shims = Ref_Shims.*image_mask_full;
+Prep_Shims = Prep_Shims.*image_mask_full;
 
 %% FFT and crop k-space to desired size (sx, sy)
 kdata_Relative = fft2c(Relative_Rx);
-kdata_Ref_Shims_mTx = fft2c(Ref_Shims_mTx);
-kdata_Prep_Shims_mTx = fft2c(Prep_Shims_mTx);
+kdata_Ref_Shims = fft2c(Ref_Shims);
+kdata_Prep_Shims = fft2c(Prep_Shims);
 
 % Crop kspace to sx * sy
 min_ind_kx = ceil(round((size(kdata_Relative,1)+1)/2) - sx/2);
 min_ind_ky = ceil(round((size(kdata_Relative,2)+1)/2) - sy/2);
 k_Relativec = 1e6*kdata_Relative(min_ind_kx:min_ind_kx+sx-1,min_ind_ky:min_ind_ky+sy-1,:,:);
-k_Ref_Shims_mTxc = 1e6*kdata_Ref_Shims_mTx(min_ind_kx:min_ind_kx+sx-1,min_ind_ky:min_ind_ky+sy-1,:,:);
-k_Prep_Shims_mTxc = 1e6*kdata_Prep_Shims_mTx(min_ind_kx:min_ind_kx+sx-1,min_ind_ky:min_ind_ky+sy-1,:,:);
+k_Ref_Shimsc = 1e6*kdata_Ref_Shims(min_ind_kx:min_ind_kx+sx-1,min_ind_ky:min_ind_ky+sy-1,:,:);
+k_Prep_Shimsc = 1e6*kdata_Prep_Shims(min_ind_kx:min_ind_kx+sx-1,min_ind_ky:min_ind_ky+sy-1,:,:);
 
 % define noise levels
-std1 = max(abs(k_Relativec),[],'all')./db2mag(pSNR); std2 = max(abs(k_Ref_Shims_mTxc),[],'all')./db2mag(pSNR); std3 = max(abs(k_Prep_Shims_mTxc),[],'all')./db2mag(pSNR);
+std1 = max(abs(k_Relativec),[],'all')./db2mag(pSNR); std2 = max(abs(k_Ref_Shimsc),[],'all')./db2mag(pSNR); std3 = max(abs(k_Prep_Shimsc),[],'all')./db2mag(pSNR);
 %% Under-sample images using under-sampling masks, then reconstruct k-space using admm
 tic
 for iter_n  = 1:size(niters_array,2)
@@ -63,11 +64,11 @@ for iter_n  = 1:size(niters_array,2)
     % pre-allocate
     recon_rel = zeros([sx,sy,8,size(k_Relativec,4),NRepeats,3,size(accelerations,2)]);
     if strcmp(Recon_Type,'SENSE') ||  strcmp(Recon_Type,'GRAPPA')
-        refUS = zeros([sx,sy,8,size(k_Ref_Shims_mTxc,4),NRepeats,3,size(accelerations,2)]);
-        prepUS = zeros([sx,sy,8,size(k_Prep_Shims_mTxc,4),NRepeats,3,size(accelerations,2)]);
+        refUS = zeros([sx,sy,8,size(k_Ref_Shimsc,4),NRepeats,3,size(accelerations,2)]);
+        prepUS = zeros([sx,sy,8,size(k_Prep_Shimsc,4),NRepeats,3,size(accelerations,2)]);
     else
-        recon_ref = zeros([sx,sy,8,size(k_Ref_Shims_mTxc,4),NRepeats,3,size(accelerations,2)]);
-        recon_prep = zeros([sx,sy,8,size(k_Prep_Shims_mTxc,4),NRepeats,3,size(accelerations,2)]);
+        recon_ref = zeros([sx,sy,8,size(k_Ref_Shimsc,4),NRepeats,3,size(accelerations,2)]);
+        recon_prep = zeros([sx,sy,8,size(k_Prep_Shimsc,4),NRepeats,3,size(accelerations,2)]);
     end
     
     if exist([Folder1,filename,'.mat'],'file') == 2
@@ -76,14 +77,14 @@ for iter_n  = 1:size(niters_array,2)
     else
         parfor accel_ind = 1:size(accelerations,2)
             kdata_Relativec_acc = zeros(sx,sy,8,8);
-            kdata_Ref_Shims_mTxc_acc = zeros(sx,sy,8,2);
-            kdata_Prep_Shims_mTxc_acc = zeros(sx,sy,8,2);
+            kdata_Ref_Shimsc_acc = zeros(sx,sy,8,2);
+            kdata_Prep_Shimsc_acc = zeros(sx,sy,8,2);
             for same_masks = 2 %1:3 Code used for testing different alternative masking strategies
                 for repeat_n = 1:NRepeats
                     % Corrupt with noise
                     k_Relativecn = k_Relativec + std1*randn(size(k_Relativec)) + 1i*std1*randn(size(k_Relativec));
-                    k_Ref_Shims_mTxcn = k_Ref_Shims_mTxc + std2*randn(size(k_Ref_Shims_mTxc)) + 1i*std2*randn(size(k_Ref_Shims_mTxc));
-                    k_Prep_Shims_mTxcn  = k_Prep_Shims_mTxc  + std3*randn(size(k_Prep_Shims_mTxc)) + 1i*std3*randn(size(k_Prep_Shims_mTxc));
+                    k_Ref_Shimscn = k_Ref_Shimsc + std2*randn(size(k_Ref_Shimsc)) + 1i*std2*randn(size(k_Ref_Shimsc));
+                    k_Prep_Shimscn  = k_Prep_Shimsc  + std3*randn(size(k_Prep_Shimsc)) + 1i*std3*randn(size(k_Prep_Shimsc));
                     
                     % Controls same/different masks for Tx modes and
                     % ref/prepared images
@@ -93,32 +94,32 @@ for iter_n  = 1:size(niters_array,2)
                         prep_mask_n = repeat_n;
                         % apply masks
                         kdata_Relativec_acc = bsxfun(@times,k_Relativecn,masks(:,:,accel_ind,rel_mask_n));
-                        kdata_Ref_Shims_mTxc_acc = bsxfun(@times,k_Ref_Shims_mTxcn,masks(:,:,accel_ind,ref_mask_n));
-                        kdata_Prep_Shims_mTxc_acc = bsxfun(@times,k_Prep_Shims_mTxcn,masks(:,:,accel_ind,prep_mask_n));
+                        kdata_Ref_Shimsc_acc = bsxfun(@times,k_Ref_Shimscn,masks(:,:,accel_ind,ref_mask_n));
+                        kdata_Prep_Shimsc_acc = bsxfun(@times,k_Prep_Shimscn,masks(:,:,accel_ind,prep_mask_n));
                     elseif same_masks == 2 % Tx modes use different masks, ref/prep images use same masks (paired)
-                        n_refprep_masks = size(k_Prep_Shims_mTxc,4); n_rel_masks = size(k_Relativec,4); count = 1; total_per_rep = n_refprep_masks + n_rel_masks;
+                        n_refprep_masks = size(k_Prep_Shimsc,4); n_rel_masks = size(k_Relativec,4); count = 1; total_per_rep = n_refprep_masks + n_rel_masks;
                         rep_base = ((repeat_n-1)*total_per_rep)+1;
                         rel_mask_n = (rep_base:rep_base+n_rel_masks-1);
                         ref_mask_n = (rep_base+n_rel_masks:rep_base+n_rel_masks+n_refprep_masks-1);
                         prep_mask_n = ref_mask_n; % reference image uses same mask as prepared
                         % apply masks
                         kdata_Relativec_acc = bsxfun(@times,k_Relativecn,masks(:,:,accel_ind,rel_mask_n));
-                        kdata_Ref_Shims_mTxc_acc = bsxfun(@times,k_Ref_Shims_mTxcn,masks(:,:,accel_ind,ref_mask_n));
-                        kdata_Prep_Shims_mTxc_acc = bsxfun(@times,k_Prep_Shims_mTxcn,masks(:,:,accel_ind,prep_mask_n));
+                        kdata_Ref_Shimsc_acc = bsxfun(@times,k_Ref_Shimscn,masks(:,:,accel_ind,ref_mask_n));
+                        kdata_Prep_Shimsc_acc = bsxfun(@times,k_Prep_Shimscn,masks(:,:,accel_ind,prep_mask_n));
                     elseif same_masks == 3 % all Tx modes, all ref/prep images use different masks
-                        n_refprep_masks = size(k_Prep_Shims_mTxc,4); n_rel_masks = size(k_Relativec,4); count = 1; total_per_rep = 2*n_refprep_masks + n_rel_masks;
+                        n_refprep_masks = size(k_Prep_Shimsc,4); n_rel_masks = size(k_Relativec,4); count = 1; total_per_rep = 2*n_refprep_masks + n_rel_masks;
                         rep_base = ((repeat_n-1)*total_per_rep)+1;
                         rel_mask_n = (rep_base:rep_base+n_rel_masks-1);
                         ref_mask_n = (rep_base+n_rel_masks:rep_base+n_rel_masks+n_refprep_masks-1);
                         prep_mask_n = (rep_base+n_rel_masks+n_refprep_masks:rep_base+n_rel_masks+2*n_refprep_masks-1);
                         % apply masks
                         kdata_Relativec_acc = bsxfun(@times,k_Relativecn,masks(:,:,accel_ind,rel_mask_n));
-                        kdata_Ref_Shims_mTxc_acc = bsxfun(@times,k_Ref_Shims_mTxcn,masks(:,:,accel_ind,ref_mask_n));
-                        kdata_Prep_Shims_mTxc_acc = bsxfun(@times,k_Prep_Shims_mTxcn,masks(:,:,accel_ind,prep_mask_n));
+                        kdata_Ref_Shimsc_acc = bsxfun(@times,k_Ref_Shimscn,masks(:,:,accel_ind,ref_mask_n));
+                        kdata_Prep_Shimsc_acc = bsxfun(@times,k_Prep_Shimscn,masks(:,:,accel_ind,prep_mask_n));
                     end
                     
                     if  strcmp(Recon_Type,'jTxLR')
-                        joint_recon = admm_txlr(double(cat(4,kdata_Relativec_acc,kdata_Ref_Shims_mTxc_acc,kdata_Prep_Shims_mTxc_acc)), kernel, niters, [50 50]);
+                        joint_recon = admm_txlr(double(cat(4,kdata_Relativec_acc,kdata_Ref_Shimsc_acc,kdata_Prep_Shimsc_acc)), kernel, niters, [50 50]);
                         recon_rel(:,:,:,:,repeat_n,same_masks,accel_ind) = joint_recon(:,:,:,1:8);
                         recon_ref(:,:,:,:,repeat_n,same_masks,accel_ind) = joint_recon(:,:,:,9:10);
                         recon_prep(:,:,:,:,repeat_n,same_masks,accel_ind) = joint_recon(:,:,:,11:12);
@@ -126,13 +127,13 @@ for iter_n  = 1:size(niters_array,2)
                         % Joint recon of relative images by concatenating along Tx dimension
                         recon_rel(:,:,:,:,repeat_n,same_masks,accel_ind) = admm_txlr(double(kdata_Relativec_acc), kernel, niters, [50 50]);
                         if  strcmp(Recon_Type,'SENSE') ||  strcmp(Recon_Type,'GRAPPA')
-                            refUS(:,:,:,:,repeat_n,same_masks,accel_ind) = kdata_Ref_Shims_mTxc_acc; % reference and prepared images still undersampled
-                            prepUS(:,:,:,:,repeat_n,same_masks,accel_ind) = kdata_Prep_Shims_mTxc_acc;
+                            refUS(:,:,:,:,repeat_n,same_masks,accel_ind) = kdata_Ref_Shimsc_acc; % reference and prepared images still undersampled
+                            prepUS(:,:,:,:,repeat_n,same_masks,accel_ind) = kdata_Prep_Shimsc_acc;
                         elseif strcmp(Recon_Type,'sTxLR')
-                            recon_ref(:,:,:,:,repeat_n,same_masks,accel_ind) = admm_txlr(double(kdata_Ref_Shims_mTxc_acc), kernel, niters, [50 50]);
-                            recon_prep(:,:,:,:,repeat_n,same_masks,accel_ind) = admm_txlr(double(kdata_Prep_Shims_mTxc_acc), kernel, niters, [50 50]);
+                            recon_ref(:,:,:,:,repeat_n,same_masks,accel_ind) = admm_txlr(double(kdata_Ref_Shimsc_acc), kernel, niters, [50 50]);
+                            recon_prep(:,:,:,:,repeat_n,same_masks,accel_ind) = admm_txlr(double(kdata_Prep_Shimsc_acc), kernel, niters, [50 50]);
                         elseif strcmp(Recon_Type,'TxLR')
-                            refprep_recon = admm_txlr(double(cat(4,kdata_Ref_Shims_mTxc_acc,kdata_Prep_Shims_mTxc_acc)), kernel, niters, [50 50]);
+                            refprep_recon = admm_txlr(double(cat(4,kdata_Ref_Shimsc_acc,kdata_Prep_Shimsc_acc)), kernel, niters, [50 50]);
                             recon_ref(:,:,:,:,repeat_n,same_masks,accel_ind) = refprep_recon(:,:,:,1:2);
                             recon_prep(:,:,:,:,repeat_n,same_masks,accel_ind) = refprep_recon(:,:,:,3:4);
                         end
@@ -157,7 +158,7 @@ toc
 %nrmse(recon_ref(:,:,:,:,1,2,3),k_Ref_Shims_mTxc) % Undersampled noisey (been through TxLR) vs noiseless
 %nrmse(recon_prep(:,:,:,:,1,2,3),k_Prep_Shims_mTxc) % Undersampled noisey (been through TxLR) vs noiseless
 
-clear k_Relativecn k_Ref_Shims_mTxcn k_Prep_Shims_mTxcn
+clear k_Relativecn k_Ref_Shimscn k_Prep_Shimscn
 %% Define mask
 % reduce size of image mask by FFT and cropping in k-space
 k_mask = fft2c(image_mask_full);
@@ -165,6 +166,7 @@ min_ind_kz1 = round(round((size(k_mask,1)+1)/2) - sz(1)/2);
 min_ind_kz2 = round(round((size(k_mask,2)+1)/2) - sz(2)/2);
 k_mask = k_mask(min_ind_kz1:min_ind_kz1+sz(1)-1,min_ind_kz2:min_ind_kz2+sz(2)-1);
 image_mask = ifft2c(k_mask);
+
 % Threshold to binarise re-scaled image_mask
 image_mask(abs(image_mask) < prctile(abs(image_mask),(1-sum(image_mask_full,'all')./(size(image_mask_full,1)*size(image_mask_full,2)))*1e2,'all')) = 0;
 image_mask(abs(image_mask) >= prctile(abs(image_mask),(1-sum(image_mask_full,'all')./(size(image_mask_full,1)*size(image_mask_full,2)))*1e2,'all')) = 1;
@@ -186,8 +188,8 @@ if (sz(1) ~= sx || sz(2) ~= sy) && any(size(k_Relativec,[1,2]) ~= sz)
     %Hanning filter and zero-pad k-space
     Hanning2D = hann(sx)*hann(sy)';
     k_Relativec = padarray(padarray(k_Relativec.*Hanning2D,ceil((sz-[sx,sy])/2),'pre'),floor((sz-[sx,sy])/2),'post');
-    k_Ref_Shims_mTxc = padarray(padarray(k_Ref_Shims_mTxc.*Hanning2D,ceil((sz-[sx,sy])/2),'pre'),floor((sz-[sx,sy])/2),'post');
-    k_Prep_Shims_mTxc = padarray(padarray(k_Prep_Shims_mTxc.*Hanning2D,ceil((sz-[sx,sy])/2),'pre'),floor((sz-[sx,sy])/2),'post');
+    k_Ref_Shimsc = padarray(padarray(k_Ref_Shimsc.*Hanning2D,ceil((sz-[sx,sy])/2),'pre'),floor((sz-[sx,sy])/2),'post');
+    k_Prep_Shimsc = padarray(padarray(k_Prep_Shimsc.*Hanning2D,ceil((sz-[sx,sy])/2),'pre'),floor((sz-[sx,sy])/2),'post');
 end
 
 %[rx_sens2,~,~] = ESPIRiTmaps(sum(k_Relativec(calib1,calib2,:,:),4),kernel,eig_thresh,eig_thresh2,0); % Sum across transmit dimension
@@ -197,14 +199,14 @@ end
 
 % FFT back to image space
 im_Relativec = ifft2c(k_Relativec);
-im_Ref_Shims_mTxc = ifft2c(k_Ref_Shims_mTxc);
-im_Prep_Shims_mTxc = ifft2c(k_Prep_Shims_mTxc);
+im_Ref_Shimsc = ifft2c(k_Ref_Shimsc);
+im_Prep_Shimsc = ifft2c(k_Prep_Shimsc);
 
 % Combine sensitivity maps with images, sum across receive
 % channels without acceleration
 Relative_Images = squeeze(sum(bsxfun(@times,im_Relativec,conj(rx_sens)),3));
-Ref_Shims = squeeze(sum(bsxfun(@times,im_Ref_Shims_mTxc,conj(rx_sens)),3));
-Prep_Shims = squeeze(sum(bsxfun(@times,im_Prep_Shims_mTxc,conj(rx_sens)),3));
+Ref_Shims = squeeze(sum(bsxfun(@times,im_Ref_Shimsc,conj(rx_sens)),3));
+Prep_Shims = squeeze(sum(bsxfun(@times,im_Prep_Shimsc,conj(rx_sens)),3));
 
 plotsupportingfigureS1(Relative_Images,Ref_Shims,Prep_Shims) % Supporting Figure 1
 
@@ -233,8 +235,6 @@ for iter_n  = 1:size(niters_array,2)
                     % accelerated data only from Relative images
                     rx_sens_acc(:,:,:,repeat_n,same_masks,accel_ind) = tx_espirit(permute(recon_rel(calib1,calib2,:,:,repeat_n,same_masks,accel_ind),[1,2,4,3]), sz, kernel, eig_thresh);
                     tx_sens_acc(:,:,:,repeat_n,same_masks,accel_ind) = tx_espirit(recon_rel(calib1,calib2,:,:,repeat_n,same_masks,accel_ind), sz, kernel, eig_thresh);
-                    %[rx_sens_acc(:,:,:,:,repeat_n,same_masks,accel_ind),~,cgESPIRiTrecon(:,:,:,:,repeat_n,same_masks,accel_ind)] = ESPIRiTmaps(sum(recon_rel(calib1,calib2,:,:,repeat_n,same_masks,accel_ind),4),kernel,eig_thresh,eig_thresh2,0,cat(4,refUS(:,:,:,:,repeat_n,same_masks,accel_ind),prepUS(:,:,:,:,repeat_n,same_masks,accel_ind))); % Sum across transmit dimension
-                    %[tx_sens_acc(:,:,:,:,repeat_n,same_masks,accel_ind),~,~] = ESPIRiTmaps(sum(recon_rel(calib1,calib2,:,:,repeat_n,same_masks,accel_ind),3),kernel,eig_thresh,eig_thresh2,0); % Sum across receive dimension
                 end
             end
         end
@@ -246,8 +246,8 @@ for iter_n  = 1:size(niters_array,2)
             if strcmp(Recon_Type,'ESPIRiT') ||  strcmp(Recon_Type,'GRAPPA')
                 refUS = padarray(padarray(refUS.*Hanning2D,ceil((sz-[sx,sy])/2),'pre'),floor((sz-[sx,sy])/2),'post');
                 prepUS = padarray(padarray(prepUS.*Hanning2D,ceil((sz-[sx,sy])/2),'pre'),floor((sz-[sx,sy])/2),'post');
-                recon_ref = zeros([sz,8,size(k_Ref_Shims_mTxc,4),NRepeats,3,size(accelerations,2)]); % pre-allocate
-                recon_prep = zeros([sz,8,size(k_Prep_Shims_mTxc,4),NRepeats,3,size(accelerations,2)]); % pre-allocate
+                recon_ref = zeros([sz,8,size(k_Ref_Shimsc,4),NRepeats,3,size(accelerations,2)]); % pre-allocate
+                recon_prep = zeros([sz,8,size(k_Prep_Shimsc,4),NRepeats,3,size(accelerations,2)]); % pre-allocate
             else
                 recon_ref = padarray(padarray(recon_ref.*Hanning2D,ceil((sz-[sx,sy])/2),'pre'),floor((sz-[sx,sy])/2),'post');
                 recon_prep = padarray(padarray(recon_prep.*Hanning2D,ceil((sz-[sx,sy])/2),'pre'),floor((sz-[sx,sy])/2),'post');

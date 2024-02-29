@@ -1,5 +1,4 @@
 %% Generate Data for and Plot Simulation Figures
-
 % Version 1.0
 
 % NOTES: 
@@ -10,12 +9,14 @@
 % 2) If genCSmasks not running, go to 'Required
 % Functions\ESPIRiTvdPoisMex' directory and use the command 'mex
 % vdPoisMex.c' in MATLAB's Command Window to build mex
-close all; clear all;
+close all; clearvars;
 addpath(genpath('Required Functions')); addpath(genpath('Data'));
 
-% Shim settings (do not change as these were used for generating synthetic images)
-settings.Shim_Setting1 = exp((2*pi*1i*(1:8))/8); % CP+
-settings.Shim_Setting2 = exp((2*pi*1i*2*(1:8))/8); % CP2+
+settings.Enc_Scheme = 'B1TIAMO';
+% If synthetic body images don't exist, generate them
+if ~(exist(['Data',filesep,'SyntheticBodyImages.mat'],'file') == 2)
+    GenerateSyntheticImages(settings.Enc_Scheme);
+end
 %% First lets define some common variables (you can freely change any of these)
 settings.sx = 24; settings.sy = 24; % Size to crop kspace down to
 settings.fovx = 25; settings.fovy = 25;
@@ -23,7 +24,7 @@ settings.ellipse = 0; settings.pp = 0;
 settings.accelerations = [1,2:2:10]; % Requested Acceleration Factors
 
 settings.Mask_N = 1000; % Number of unique masks (1000 used in paper)
-settings.NRepeats = 5; % Repeat with random channel-wise complex Gaussian noise and different undersampling masks (50 repeats used in paper, but requires minimum 500 masks be generated)
+settings.NRepeats = 50; % Repeat with random channel-wise complex Gaussian noise and different undersampling masks (50 repeats used in paper, but requires minimum 500 masks be generated)
 
 % Recon parameters
 settings.sz = [32 32]; % Size to reconstruct to (Original Data is [139 178])

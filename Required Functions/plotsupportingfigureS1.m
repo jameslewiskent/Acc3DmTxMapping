@@ -8,5 +8,7 @@ end
 
 plotdata = cat(3,abs(Relative_Images),catdata);
 figure('color','w','units','centimeters'); tiledlayout('flow','TileSpacing','none','Padding','none'); nexttile;
-imagesc(imtile(abs(plotdata))); axis image off
+imagesc(imtile(abs(plotdata)),[0 5e-3]); axis image off
+cb = colorbar;
+cb.Label.String = 'Image Magnitude, [a.u.]';
 end
