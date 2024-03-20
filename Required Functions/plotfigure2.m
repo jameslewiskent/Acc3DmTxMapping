@@ -1,11 +1,10 @@
 function plotfigure2(settings)
 cmin = 0; cmax = 150;
-err_min = -10; err_max = 10;
+err_min = -5; err_max = 5;
 same_masks = 2; % All Tx, ref/prep images use different masks
 axis_fontsize = 11;
 ROI_xcords = 14:26; ROI_ycords = 12:26; % ROIs for sz = [32 32]
 
-Recon_Type = settings.Recon_Type;
 sx = settings.sx;
 sy = settings.sy;
 sz = settings.sz;
@@ -13,11 +12,13 @@ calib = settings.calib;
 niters = settings.niters_array;
 accelerations = settings.accelerations;
 NRepeats = settings.NRepeats;
-Shim_Setting1 = settings.Shim_Setting1;
+[Enc_Mat,~] = CalcEncMat(settings.Enc_Scheme);
+Shim_Setting1 = Enc_Mat(9,:); % CP
+%Shim_Setting2 = Enc_Mat(10,:); % CP2
 type = settings.type;
 
-filename = ['Simulated_',Recon_Type,'Recon_sx',num2str(sx),'_sy',num2str(sy),'_calib',num2str(calib),'_niters',num2str(niters),'_Repeats',num2str(NRepeats),'_ReconSize',[num2str(sz(1)),num2str(sz(2))],'.mat'];
-load(['Data',filesep,'Synthetic Body Simulation Results',filesep,'ReconData',filesep,filename],'Maps','Maps_acc');
+filename = ['Simulated_sx',num2str(sx),'_sy',num2str(sy),'_calib',num2str(calib),'_niters',num2str(niters),'_Repeats',num2str(NRepeats),'_ReconSize',[num2str(sz(1)),num2str(sz(2))],'.mat'];
+load(['Data',filesep,'Synthetic Body Simulation Results',filesep,'ReconData',filesep,filename],'Maps','Maps_acc','heart_mask');
 
 % Adjust ROI incase sz has been altered from [32 32]
 ROI_xcords = round((ROI_xcords(1)./32)*sz(1)):round((ROI_xcords(end)./32)*sz(1));
@@ -46,7 +47,7 @@ rectangle('Position',[ROI_ycords(1)-1,ROI_xcords(1)-1,ROI_ycords(end)-ROI_ycords
 
 ax2 = nexttile; % SD
 SDData_to_plot = imtile(reshape(squeeze(std(abs(permute(Maps_acc(:,:,:,:,same_masks,1:size(accelerations,2)),[1 2 6 4 5 3])),[],4)),size(Maps_acc,1),size(Maps_acc,2),[]),'GridSize',[size(Maps_acc,3),size(accelerations,2)]);
-imagesc(SDData_to_plot,[0 10]);
+imagesc(SDData_to_plot,[0 5]);
 cb = colorbar;
 cb.Label.String = ['SD in \alpha [',char(176),']']; cb.FontSize = axis_fontsize-2; cb.Label.FontSize = axis_fontsize;
 colormap(ax2,bluewhitered)
@@ -58,8 +59,13 @@ yticks(((1:size(Maps_acc,3)).*sz(1)) - sz(1)/2);
 yticklabels(1:size(Maps_acc,3));
 title('b) SD','Fontsize',axis_fontsize+1);
 
+% Mask out non-heart voxels
+Maps_acc = heart_mask.*Maps_acc;
+Maps = heart_mask.*Maps;
+
 % Plot difference in Maps in ROI
 Maps_acc_crop = Maps_acc(ROI_xcords,ROI_ycords,:,:,:,1:size(accelerations,2)); Maps_crop = Maps(ROI_xcords,ROI_ycords,:,:,:,:);
+
 MeanData_to_plot = imtile(reshape(squeeze(mean(permute(abs(Maps_acc_crop(:,:,:,:,same_masks,1:size(accelerations,2))) - abs(Maps_crop),[1 2 6 4 5 3]),4)),size(Maps_acc_crop,1),size(Maps_acc_crop,2),[]),'GridSize',[size(Maps_acc_crop,3),size(Maps_acc_crop,6)]);
 
 Maps_crop_CP = sum(bsxfun(@times,Maps_crop,permute(Shim_Setting1,[1 3 2])),3);

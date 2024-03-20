@@ -1,15 +1,24 @@
-This code generates and plots figures for 'Single Breath-hold Accelerated 3D Multi-Channel B1+ Mapping at 7T for the Brain and Heart'
+This code generates and plots figures for 'Accelerated 3D Multi-Channel B1+ Mapping at 7T for the Brain and Heart'
 
-Version 1.0
+Version 2.0
 
 Install:
-
 1. Please download the an unzip the code.
 2. Start MatLab and navigate to the folder'Acc3DmTxMapping-main'
 3. Open 'PlotSimulationFigures.m'
 4. Run each section of code which will run simulations and produce plots for Figures 2, S3 and S4.
 
 Notes: Some data is available as 'SyntheticBodyImages.mat' in the 'Data' directory. Some undersampling masks are also present, but should also be generated if they do not already exist. If a new mask is requested but produces an error, try going to the 'Required Functions\ESPIRiTvdPoisMex' directory and use the command 'mex vdPoisMex.c' in MatLab's Command Window to build mex.
+
+
+Required MATLAB Toolboxes:
+1. MATLAB (>=R2020b)
+2. Signal Processing Toolbox
+3. Image Processing Toolbox
+4. Statistics and Machine Learning Toolbox
+5. Parallel Computing Toolbox
+6. MATLAB Parallel Server
+7. Polyspace Bug Finder
 
 
 Third party software downloaded from the internet was used extenstively in this project, these include:
