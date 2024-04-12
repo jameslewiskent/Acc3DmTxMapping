@@ -37,7 +37,6 @@ kdata_p = padarray(padarray(kdata_c.*TukeyRot,ceil((recon_size-[sx,sy])/2),'pre'
 
 Images_cropped = image_mask.*ifft2c(kdata_p);
 Images_cropped = squeeze(sum(bsxfun(@times,Images_cropped,conj(rx_sens)),3));
-%Images_cropped = squeeze(sum(Images_cropped,3));
 
 Images_FA_cropped = (180./pi).*acos(real(Images_cropped(:,:,11:12)./Images_cropped(:,:,9:10)));
 
@@ -62,7 +61,6 @@ ax2 = nexttile(); imagesc(Rel_Diff_Data,'AlphaData',imAlpha,[-10 10]); axis imag
 set(ax2,'color',[0 1 0]);
 
 nrmse(nonzeros((image_heartmask.*Images_FA_cropped)),nonzeros((image_heartmask.*Images_FA_GT)))
-rmse(nonzeros((image_heartmask.*Images_FA_cropped)),nonzeros((image_heartmask.*Images_FA_GT)))
 
 %% Plot Relative Maps 
 
@@ -82,4 +80,3 @@ ax2 = nexttile(); imagesc(Rel_Diff_Data,'AlphaData',imAlpha,[-10 10]); axis imag
 set(ax2,'color',[0 1 0]);
 
 nrmse(nonzeros((image_heartmask.*Rel_Maps_cropped)),nonzeros((image_heartmask.*Rel_Maps_GT)))
-rmse(nonzeros((image_heartmask.*Rel_Maps_cropped)),nonzeros((image_heartmask.*Rel_Maps_GT)))

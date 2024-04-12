@@ -249,8 +249,8 @@ for iter_n  = 1:size(niters_array,2)
         Maps = mask3.*Maps; Maps_acc = mask3.*Maps_acc;
         
         save([Folder2,filename2],'Maps','Maps_acc','heart_mask');
+        disp(['Iteration ',num2str(niters_array(iter_n)), ' completed for all acceleration factors ', datestr(now, 'dd/mm/yy-HH:MM')])
     end
-    disp(['Iteration ',num2str(niters_array(iter_n)), ' completed for all acceleration factors ', datestr(now, 'dd/mm/yy-HH:MM')])
 end
 
 toc

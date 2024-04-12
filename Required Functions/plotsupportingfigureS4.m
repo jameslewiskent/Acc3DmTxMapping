@@ -1,8 +1,7 @@
-function plotsupportingfigureS5(settings)
+function plotsupportingfigureS4(settings)
 ROI_xcords = 14:26; ROI_ycords = 12:26; % ROIs for sz = [32 32]
 axis_fontsize = 11;
 
-Recon_Type = settings.Recon_Type;
 sx = settings.sx;
 sy = settings.sy;
 sz = settings.sz;
@@ -10,7 +9,8 @@ calib = settings.calib;
 NRepeats = settings.NRepeats;
 niters_array = settings.niters_array;
 accelerations = settings.accelerations;
-Shim_Setting1 = settings.Shim_Setting1;
+[Enc_Mat,~] = CalcEncMat(settings.Enc_Scheme);
+Shim_Setting1 = Enc_Mat(9,:); % CP
 
 % Adjust incase sz has been altered from [32 32]
 ROI_xcords = round((ROI_xcords(1)./32)*sz(1)):round((ROI_xcords(end)./32)*sz(1));
@@ -18,11 +18,11 @@ ROI_ycords = round((ROI_ycords(1)./32)*sz(2)):round((ROI_ycords(end)./32)*sz(2))
 
 for iter_n  = 1:size(niters_array,2)
     niters = niters_array(iter_n);
-    filename = ['Simulated_',Recon_Type,'Recon_sx',num2str(sx),'_sy',num2str(sy),'_calib',num2str(calib),'_niters',num2str(niters),'_Repeats',num2str(NRepeats),'_ReconSize',[num2str(sz(1)),num2str(sz(2))],'.mat'];
-    load(['Data',filesep,'Synthetic Body Simulation Results',filesep,'ReconData',filesep,filename],'Maps','Maps_acc');
+    filename = ['Simulated_sx',num2str(sx),'_sy',num2str(sy),'_calib',num2str(calib),'_niters',num2str(niters),'_Repeats',num2str(NRepeats),'_ReconSize',[num2str(sz(1)),num2str(sz(2))],'.mat'];
+    load(['Data',filesep,'Synthetic Body Simulation Results',filesep,'ReconData',filesep,filename],'Maps','Maps_acc','heart_mask');
     
-    Maps_CP = sum(bsxfun(@times,Maps,permute(Shim_Setting1,[1 3 2])),3);
-    Maps_acc_CP = sum(bsxfun(@times,Maps_acc,permute(Shim_Setting1,[1 3 2])),3);
+    Maps_CP = sum(bsxfun(@times,heart_mask.*Maps,permute(Shim_Setting1,[1 3 2])),3);
+    Maps_acc_CP = sum(bsxfun(@times,heart_mask.*Maps_acc,permute(Shim_Setting1,[1 3 2])),3);
     
     for accel_ind = 1:size(accelerations,2)
         for n = 1:3

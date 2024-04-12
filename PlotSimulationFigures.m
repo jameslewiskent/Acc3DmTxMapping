@@ -52,14 +52,13 @@ SimulateUndersamplingofSyntheticBodyImages(settings)
 % Plot Supporting Figure 4 (no calibration region; Compare to Figure 2)
 plotfigure2(settings)
 
-%% Generate data and plot Supporting Figure 5
+%% Generate data and plot Supporting Figure 4
 settings.calib = 4; % calibration region
 settings.niters_array = 2:2:50; % TxLR iterations (2:1:50 in paper)
-settings.NRepeats = 5; % Repeat with random channel-wise complex Gaussian noise and different undersampling masks (50 repeats used in paper)
 
 % Generate Data
 SimulateUndersamplingofSyntheticBodyImages(settings)
 
-% Plot Supporting Figure 5
+% Plot Supporting Figure 4
 plotsupportingfigureS5(settings)
 
